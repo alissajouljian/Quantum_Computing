@@ -1,42 +1,50 @@
 import random
 
-NUM_QUBITS = 6  # Number of qubits to represent each color
-NUM_TRIES = 10
-CODE_LENGTH = 3
-NUM_COLORS = 6  # Number of colors
+def initial_guess():
+    return [random.choice(range(NUM_COLORS)) for _ in range(CODE_LENGTH)]
 
-# Define the quantum gates and operations
-def apply_guess_gates(qc, guess):
-    # Apply gates based on the guess to the quantum circuit
-    for i, color in enumerate(guess):
-        color_index = COLORS.index(color)
-        qc.x(color_index)
-        qc.cx(color_index, CODE_LENGTH + i)
-        qc.x(color_index)
+def evaluate(secret_code, guess):
+    correct_positions = sum(1 for i in range(CODE_LENGTH) if guess[i] == secret_code[i])
+    correct_colors = sum(min(secret_code.count(color), guess.count(color)) for color in set(guess))
+    return correct_positions, correct_colors - correct_positions
 
-def apply_check_gates(qc, code):
-    # Apply gates to check the correctness of the guess against the secret code
-    for i, color in enumerate(code):
-        color_index = COLORS.index(color)
-        qc.cx(color_index, i)
-        qc.measure(i, i)  # Measure the result
+def update(all_possible_codes, guess, result):
+    return [code for code in all_possible_codes if evaluate(code, guess) == result]
 
-def simulate_classical_game():
-    # Simulate the classical Mastermind game
-    for _ in range(NUM_TRIES):
-        secret_code = [random.choice(COLORS) for _ in range(CODE_LENGTH)]
+def optimize(all_possible_codes):
+    min_worst_case = float('inf')
+    best_guess = None
+    for guess in all_possible_codes:
+        worst_case = max(sum(1 for code in all_possible_codes if evaluate(code, guess) != result) for result in [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (2, 0)])
+        if worst_case < min_worst_case:
+            min_worst_case = worst_case
+            best_guess = guess
+    return best_guess
 
-        for _ in range(NUM_TRIES):
-            guess = [random.choice(COLORS) for _ in range(CODE_LENGTH)]
+def start(NUM_TRIES,CODE_LENGTH, NUM_COLORS):
+    secret_code = initial_guess()
+    print("Secret Code was:", secret_code)
 
-            if guess == secret_code:
-                print("Congratulations! You guessed the code.")
-                return
-            else:
-                print("Incorrect guess. Try again.")
+    all_possible_codes = [[i, j, k] for i in range(NUM_COLORS) for j in range(NUM_COLORS) for k in range(NUM_COLORS)]
 
-        print("You ran out of tries. The secret code was:", secret_code)
+    for attempt in range(1, NUM_TRIES + 1):
+        guess = optimize(all_possible_codes)
+        print("Attempt", attempt, ":", guess)
+
+        correct_positions, correct_colors = evaluate(secret_code, guess)
+        print("Correct Positions:", correct_positions)
+        print("Correct Colors:", correct_colors)
+
+        if correct_positions == CODE_LENGTH:
+            print("Congratulations! you guesed it in ", attempt, "attempts.")
+            return
+
+        all_possible_codes = update(all_possible_codes, guess, (correct_positions, correct_colors))
+
+    print("Ran out of attempts. The code was:", secret_code)
 
 if __name__ == "__main__":
-    COLORS = ["00", "01", "11"]  # Binary representation of colors
-    simulate_classical_game()
+    NUM_TRIES = 20
+    CODE_LENGTH = 3
+    NUM_COLORS = 6
+    start(NUM_TRIES,CODE_LENGTH, NUM_COLORS )
